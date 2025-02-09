@@ -20,7 +20,17 @@ RUN apk add --no-cache \
 	make \
 	build-base
 
+RUN apk add --no-cache \
+	caddy \
+	supervisor \
+	bash=5.2.21-r0
+
 COPY .env.example /app/.env
+COPY devops/var/docker/entrypoint.sh /app/entrypoint.sh
+COPY devops/var/docker/Caddyfile /app/Caddyfile
+COPY devops/var/docker/supervisord.conf /etc/supervisord.conf
+COPY devops/var/docker/supervisord /app/supervisord_configs/
+
 COPY nx.json tsconfig.base.json package.json package-lock.json build.plugins.js /app/
 COPY apps /app/apps/
 COPY libraries /app/libraries/
@@ -30,4 +40,6 @@ RUN npm install
 VOLUME /config
 VOLUME /uploads
 
-ENTRYPOINT npm run dev
+RUN chmod 775 /app/entrypoint.sh
+
+ENTRYPOINT ["/app/entrypoint.sh"]
