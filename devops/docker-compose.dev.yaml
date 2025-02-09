@@ -1,0 +1,99 @@
+services:
+  postiz-postgres:
+    # ref: https://hub.docker.com/_/postgres
+    image: postgres:17-alpine # 17.0
+    container_name: postiz-postgres
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: postiz-local-pwd
+      POSTGRES_USER: postiz-local
+      POSTGRES_DB: postiz-db-local
+    volumes:
+      - postgres-volume:/var/lib/postgresql/data
+    ports:
+      - 5432:5432
+    networks:
+      - postiz-network
+  postiz-redis:
+    # ref: https://hub.docker.com/_/redis
+    image: redis:7-alpine # 7.4.0
+    container_name: postiz-redis
+    restart: always
+    ports:
+      - 6379:6379
+    networks:
+      - postiz-network
+  postiz-pg-admin:
+    # ref: https://hub.docker.com/r/dpage/pgadmin4/tags
+    image: dpage/pgadmin4:latest
+    container_name: postiz-pg-admin
+    restart: always
+    ports:
+      - 8081:80
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    networks:
+      - postiz-network
+  postiz-redisinsight:
+    # ref: https://hub.docker.com/r/redis/redisinsight
+    image: redis/redisinsight:latest
+    container_name: postiz-redisinsight
+    links:
+      - postiz-redis
+    ports:
+      - "5540:5540"
+    volumes:
+      - redisinsight:/data
+    networks:
+      - postiz-network
+    restart: always
+  postiz-app:
+    container_name: postiz-app
+    networks:
+      - postiz-network
+    build:
+      context: ..
+      dockerfile: ./devops/Dockerfile.dev
+    ports:
+      - 3000:3000
+      - 4200:4200
+      - 5000:5000
+    depends_on:
+      - postiz-postgres
+      - postiz-redis
+      - postiz-pg-admin
+      - postiz-redisinsight
+    environment:
+      # You must change these. Replace `postiz.your-server.com` with your DNS name - what your web browser sees.
+      MAIN_URL: "http://localhost:5000"
+      FRONTEND_URL: "http://localhost:4200"
+      NEXT_PUBLIC_BACKEND_URL: "http://localhost:3000"
+      JWT_SECRET: "random string that is unique to every install - just type random characters here!"
+
+      # These defaults are probably fine, but if you change your user/password, update it in the
+      # postiz-postgres or postiz-redis services below.
+      DATABASE_URL: "postgresql://postiz-local:postiz-local-pwd@postiz-postgres:5432/postiz-db-local"
+      REDIS_URL: "redis://postiz-redis:6379"
+      BACKEND_INTERNAL_URL: "http://localhost:3000"
+      IS_GENERAL: "true" # Required for self-hosting.
+      # The container images are pre-configured to use /uploads for file storage.
+      # You probably should not change this unless you have a really good reason!
+      STORAGE_PROVIDER: "local"
+      UPLOAD_DIRECTORY: "/uploads"
+      NEXT_PUBLIC_UPLOAD_DIRECTORY: "/uploads"
+      INTERNAL_PROXY_ENABLED: true
+    volumes:
+      - postiz-config:/config
+      - postiz-uploads:/uploads
+
+volumes:
+  redisinsight:
+  postgres-volume:
+    external: false
+  postiz-config:
+  postiz-uploads:
+
+networks:
+  postiz-network:
+    external: false

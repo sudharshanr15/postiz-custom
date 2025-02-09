@@ -1,0 +1,33 @@
+ARG NODE_VERSION="20.17"
+
+FROM docker.io/node:${NODE_VERSION}-alpine3.19
+
+ENV NPM_CONFIG_UPDATE_NOTIFIER=false
+ENV NEXT_TELEMETRY_DISABLED=1
+
+WORKDIR /app
+
+EXPOSE 3000
+EXPOSE 4200
+EXPOSE 5000
+
+RUN apk add --no-cache \
+	pkgconfig \
+	gcc \
+	pixman-dev \
+	cairo-dev \
+	pango-dev \
+	make \
+	build-base
+
+COPY .env.example /app/.env
+COPY nx.json tsconfig.base.json package.json package-lock.json build.plugins.js /app/
+COPY apps /app/apps/
+COPY libraries /app/libraries/
+
+RUN npm install
+
+VOLUME /config
+VOLUME /uploads
+
+ENTRYPOINT npm run dev
